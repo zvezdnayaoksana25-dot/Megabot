@@ -228,7 +228,15 @@ TELEGRAM_CHAT_ID
 Source: GitHub Actions
 ```
 
-4. Сохраните настройки.
+4. Если GitHub показывает экран с предложенными workflow, выберите:
+
+```text
+Static HTML
+```
+
+Не выбирайте `GitHub Pages Jekyll`: проект не использует Jekyll, а собирает обычный static build в папку `dist`. Если в репозитории уже есть `.github/workflows/pages.yml`, не создавайте второй Pages workflow из шаблона — просто сохраните `Source: GitHub Actions` и запускайте существующий workflow **Deploy GitHub Pages**.
+
+5. Сохраните настройки.
 
 ### 3. Добавьте GitHub Secrets
 
@@ -238,7 +246,7 @@ Source: GitHub Actions
 Repository → Settings → Secrets and variables → Actions → New repository secret
 ```
 
-Добавьте три секрета:
+Добавьте обязательные секреты для AI-автоматизаций:
 
 | Secret | Для чего нужен |
 | --- | --- |
@@ -246,11 +254,22 @@ Repository → Settings → Secrets and variables → Actions → New repository
 | `TELEGRAM_BOT_TOKEN` | Отправка сообщений через Telegram Bot API. |
 | `TELEGRAM_CHAT_ID` | ID пользователя или чата, куда отправлять уведомления. |
 
+Опционально для первого автоматического включения GitHub Pages можно добавить:
+
+| Secret | Для чего нужен |
+| --- | --- |
+| `PAGES_TOKEN` | Fine-grained token с правами администрирования Pages. Нужен только если Pages ещё не включён вручную в Settings → Pages. |
+
 Важно: не добавляйте эти значения в код, README, issues или commits.
 
 ---
 
 ## Деплой на GitHub Pages
+
+Workflow деплоя не вызывает `actions/configure-pages` без `PAGES_TOKEN`, потому что GitHub API возвращает `Get Pages site failed: Not Found`, если Pages ещё не включён. Поэтому перед первым деплоем выберите один из вариантов:
+
+1. **Рекомендуется:** вручную включите `Source: GitHub Actions` в `Settings → Pages`. Если GitHub предлагает шаблоны workflow, выбирайте `Static HTML`, а не `GitHub Pages Jekyll`.
+2. **Автоматически:** добавьте secret `PAGES_TOKEN` с правами на администрирование Pages; тогда workflow выполнит `configure-pages` с `enablement: true`.
 
 После настройки Pages есть два способа деплоя.
 
@@ -269,6 +288,9 @@ Workflow `.github/workflows/pages.yml` соберёт static build и опубл
 1. Откройте вкладку **Actions**.
 2. Выберите workflow **Deploy GitHub Pages**.
 3. Нажмите **Run workflow**.
+4. В выпадающем списке **Branch** выберите `main`.
+
+Деплой в environment `github-pages` выполняется только из ветки `main`. Если запустить workflow из feature-ветки, например `codex/fix-github-actions-errors`, workflow выполнит build, но пропустит deploy, чтобы GitHub не отклонил публикацию из-за environment protection rules.
 
 После успешного деплоя URL будет доступен в GitHub Pages settings или в summary workflow run.
 
@@ -434,8 +456,10 @@ npm run preview
 Проверьте:
 
 1. Включён ли Source: **GitHub Actions** в Settings → Pages.
-2. Успешно ли прошёл workflow **Deploy GitHub Pages**.
-3. Есть ли артефакт `dist` в workflow run.
+2. Если Pages ещё не включён вручную, добавлен ли secret `PAGES_TOKEN` с правами на администрирование Pages. Без него `actions/configure-pages` не может создать Pages site.
+3. Запущен ли workflow из ветки `main`. Ветки вроде `codex/fix-github-actions-errors` обычно не имеют права деплоить в environment `github-pages`, поэтому deploy будет пропущен или отклонён правилами защиты.
+4. Успешно ли прошёл workflow **Deploy GitHub Pages**.
+5. Есть ли артефакт `dist` в workflow run.
 
 ### Telegram не получает сообщения
 
