@@ -1,47 +1,64 @@
 const DB_NAME = 'megabot-cognitive-os';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 const STORES = ['tasks', 'notes', 'events', 'memories', 'summaries', 'messages', 'settings'];
+const FALLBACK_KEY = `${DB_NAME}:fallback`;
 
 let dbPromise;
+let fallbackActive = typeof globalThis.indexedDB === 'undefined';
+let fallbackCache;
 
 export function uid(prefix = 'id') {
   return `${prefix}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
 }
 
 export function openDatabase() {
+  if (fallbackActive) return Promise.resolve(null);
   if (dbPromise) return dbPromise;
   dbPromise = new Promise((resolve, reject) => {
     const request = indexedDB.open(DB_NAME, DB_VERSION);
     request.onerror = () => reject(request.error);
     request.onsuccess = () => resolve(request.result);
-    request.onupgradeneeded = () => {
-      const db = request.result;
-      STORES.forEach((storeName) => {
-        if (!db.objectStoreNames.contains(storeName)) {
-          const store = db.createObjectStore(storeName, { keyPath: 'id' });
-          store.createIndex('createdAt', 'createdAt', { unique: false });
-          if (storeName === 'tasks') {
-            store.createIndex('status', 'status', { unique: false });
-            store.createIndex('deadline', 'deadline', { unique: false });
-          }
-          if (storeName === 'events') store.createIndex('start', 'start', { unique: false });
-          if (storeName === 'memories') store.createIndex('type', 'type', { unique: false });
-        }
-      });
-    };
+    request.onupgradeneeded = () => ensureStores(request.result);
+  }).catch((error) => {
+    console.warn('IndexedDB недоступен, включён localStorage fallback.', error);
+    fallbackActive = true;
+    dbPromise = undefined;
+    return null;
   });
   return dbPromise;
 }
 
+function ensureStores(db) {
+  STORES.forEach((storeName) => {
+    if (!db.objectStoreNames.contains(storeName)) {
+      const store = db.createObjectStore(storeName, { keyPath: 'id' });
+      store.createIndex('createdAt', 'createdAt', { unique: false });
+      if (storeName === 'tasks') {
+        store.createIndex('status', 'status', { unique: false });
+        store.createIndex('deadline', 'deadline', { unique: false });
+      }
+      if (storeName === 'events') store.createIndex('start', 'start', { unique: false });
+      if (storeName === 'memories') store.createIndex('type', 'type', { unique: false });
+    }
+  });
+}
+
 async function tx(storeName, mode, callback) {
   const db = await openDatabase();
-  return new Promise((resolve, reject) => {
-    const transaction = db.transaction(storeName, mode);
-    const store = transaction.objectStore(storeName);
-    const result = callback(store);
-    transaction.oncomplete = () => resolve(result);
-    transaction.onerror = () => reject(transaction.error);
-  });
+  if (!db) return callback(fallbackStore(storeName));
+  try {
+    return await new Promise((resolve, reject) => {
+      const transaction = db.transaction(storeName, mode);
+      const store = transaction.objectStore(storeName);
+      const request = callback(store);
+      transaction.oncomplete = () => resolve(request?.result);
+      transaction.onerror = () => reject(transaction.error);
+    });
+  } catch (error) {
+    console.warn('IndexedDB transaction failed, localStorage fallback is used.', error);
+    fallbackActive = true;
+    return callback(fallbackStore(storeName));
+  }
 }
 
 export async function put(storeName, value) {
@@ -57,11 +74,18 @@ export async function remove(storeName, id) {
 
 export async function getAll(storeName) {
   const db = await openDatabase();
-  return new Promise((resolve, reject) => {
-    const request = db.transaction(storeName, 'readonly').objectStore(storeName).getAll();
-    request.onsuccess = () => resolve(request.result.sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || '')));
-    request.onerror = () => reject(request.error);
-  });
+  if (!db) return sortRecords(Object.values(fallbackData()[storeName] || {}));
+  try {
+    return await new Promise((resolve, reject) => {
+      const request = db.transaction(storeName, 'readonly').objectStore(storeName).getAll();
+      request.onsuccess = () => resolve(sortRecords(request.result));
+      request.onerror = () => reject(request.error);
+    });
+  } catch (error) {
+    console.warn('IndexedDB read failed, localStorage fallback is used.', error);
+    fallbackActive = true;
+    return sortRecords(Object.values(fallbackData()[storeName] || {}));
+  }
 }
 
 export async function getSettings() {
@@ -131,4 +155,46 @@ export async function seedIfEmpty() {
   await put('events', {
     id: uid('event'), title: 'Планирование дня', start: `${today}T09:00`, end: `${today}T09:25`, type: 'planning', createdAt: now.toISOString()
   });
+}
+
+function fallbackData() {
+  if (fallbackCache) return fallbackCache;
+  const empty = Object.fromEntries(STORES.map((store) => [store, {}]));
+  const raw = globalThis.localStorage?.getItem(FALLBACK_KEY);
+  try {
+    fallbackCache = raw ? { ...empty, ...JSON.parse(raw) } : empty;
+  } catch {
+    fallbackCache = empty;
+  }
+  return fallbackCache;
+}
+
+function fallbackStore(storeName) {
+  return {
+    put(record) {
+      const data = fallbackData();
+      data[storeName][record.id] = record;
+      saveFallbackData(data);
+      return { result: record };
+    },
+    delete(id) {
+      const data = fallbackData();
+      delete data[storeName][id];
+      saveFallbackData(data);
+      return { result: undefined };
+    }
+  };
+}
+
+function saveFallbackData(data) {
+  fallbackCache = data;
+  try {
+    globalThis.localStorage?.setItem(FALLBACK_KEY, JSON.stringify(data));
+  } catch {
+    console.warn('localStorage недоступен, данные останутся только до обновления вкладки.');
+  }
+}
+
+function sortRecords(records) {
+  return records.sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
 }
