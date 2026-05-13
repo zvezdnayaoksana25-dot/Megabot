@@ -10,7 +10,27 @@
     <link rel="stylesheet" href="./src/styles.css" />
   </head>
   <body>
-    <div id="app"></div>
+    <div id="app">
+      <main class="shell boot">
+        <section class="card glass">
+          <p class="eyebrow">Megabot fallback</p>
+          <h1>Приложение загружается…</h1>
+          <p class="muted">
+            Если этот текст не исчезает через несколько секунд, браузер не загрузил JavaScript.
+            Проверьте, что открыт GitHub Pages URL, workflow Deploy GitHub Pages успешно прошёл в ветке main,
+            а файлы <code>src/app.js</code> и <code>src/styles.css</code> доступны в опубликованном сайте.
+          </p>
+        </section>
+      </main>
+      <noscript>
+        <main class="shell boot">
+          <section class="card glass">
+            <h1>JavaScript выключен</h1>
+            <p>Megabot работает как browser app, поэтому включите JavaScript и обновите страницу.</p>
+          </section>
+        </main>
+      </noscript>
+    </div>
     <script type="module" src="./src/app.js"></script>
   </body>
 </html>
