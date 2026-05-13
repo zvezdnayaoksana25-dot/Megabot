@@ -1,9 +1,15 @@
-import { dueItems, groq, readSnapshot, telegram } from './lib.mjs';
+import { dueItems, groq, missingEnv, readSnapshot, telegram } from './lib.mjs';
 
 const snapshot = await readSnapshot();
 const due = dueItems(snapshot);
 if (!due.tasks.length && !due.events.length) {
   console.log('No due tasks or events in the notification window.');
+  process.exit(0);
+}
+
+const missing = missingEnv(['GROQ_API_KEY']);
+if (missing.length) {
+  console.warn(`Skipping AI reminder: missing ${missing.join(', ')}.`);
   process.exit(0);
 }
 
