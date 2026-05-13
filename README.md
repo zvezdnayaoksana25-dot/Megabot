@@ -234,6 +234,14 @@ https://<OWNER>.github.io/<REPO>/.nojekyll
 
 Все три URL должны открываться без 404. Если `src/app.js` не открывается, страница будет показывать только fallback-текст из `index.html`.
 
+Можно проверить опубликованный сайт одной командой:
+
+```bash
+npm run verify:pages -- https://<OWNER>.github.io/<REPO>/
+```
+
+Команда проверит `index.html`, `src/app.js`, `src/styles.css`, `data/memory.json` и `.nojekyll`. Если какой-то файл не опубликован или отдаёт 404, скрипт завершится с ошибкой и покажет проблемный asset.
+
 ### Шаг 5. Откройте опубликованное приложение
 
 После успешного workflow GitHub покажет URL вида:
