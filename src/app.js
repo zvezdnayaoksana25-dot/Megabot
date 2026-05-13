@@ -1,4 +1,3 @@
-import './styles.css';
 import { exportSnapshot, getAll, getSettings, importSnapshot, put, remove, seedIfEmpty, setSetting, uid } from './db.js';
 import { askAI, localCoach } from './ai.js';
 import { buildDayPlan, deriveAnalytics, scoreLoad, todayKey } from './taskEngine.js';

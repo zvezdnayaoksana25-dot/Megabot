@@ -1,4 +1,10 @@
-import { groq, readSnapshot, telegram, writeSnapshot } from './lib.mjs';
+import { groq, missingEnv, readSnapshot, telegram, writeSnapshot } from './lib.mjs';
+
+const missing = missingEnv(['GROQ_API_KEY']);
+if (missing.length) {
+  console.warn(`Skipping daily report: missing ${missing.join(', ')}.`);
+  process.exit(0);
+}
 
 const snapshot = await readSnapshot();
 const day = new Date().toISOString().slice(0, 10);
@@ -12,5 +18,5 @@ const content = await groq([
 const summary = { id: `summary_${day}`, title: `Ежедневный отчёт ${day}`, summary: content, type: 'daily', createdAt: new Date().toISOString() };
 snapshot.stores = { ...stores, summaries: [summary, ...(stores.summaries || []).filter((item) => item.id !== summary.id)] };
 await writeSnapshot(snapshot);
-await telegram(`🧠 <b>Ежедневный отчёт</b>\n\n${content}`);
+await telegram(`🧠 Ежедневный отчёт\n\n${content}`);
 console.log(`Daily report saved for ${day}.`);
