@@ -1,487 +1,29 @@
 # Megabot Cognitive OS
 
-**Megabot Cognitive OS** — это полностью serverless веб-приложение для GitHub Pages: персональный AI-центр управления задачами, расписанием, памятью, дневником, аналитикой поведения, инсайтами и Telegram-коучингом.
+**Megabot Cognitive OS** — статическое serverless-приложение для GitHub Pages: личная когнитивная ОС для задач, расписания, памяти, дневника, аналитики, AI-входа и Telegram-коучинга.
 
-Приложение работает без отдельного backend-сервера:
+Приложение не требует отдельного backend-сервера:
 
-- фронтенд разворачивается как статический сайт на **GitHub Pages**;
-- локальная рабочая память хранится в браузере через **IndexedDB**;
-- резервная память может синхронизироваться в `data/memory.json` внутри GitHub-репозитория;
-- автономные напоминания и ежедневные отчёты выполняются через **GitHub Actions**;
-- AI-запросы выполняются через **Groq API**;
-- уведомления доставляются через **Telegram Bot API**.
-
----
-
-## Что входит в приложение
-
-- **Dashboard** — главный центр управления днём, нагрузкой, фокусом и следующими действиями.
-- **Задачи** — создание задач, статусы, приоритеты, дедлайны, оценка времени, декомпозиция.
-- **Расписание** — дневные блоки времени, генерация плана дня, интеграция задач в календарную сетку.
-- **Память / журнал** — заметки, мысли, рефлексии, mood/energy, структурирование памяти.
-- **Аналитика** — выполнение задач, дисциплина, энергия, сигналы прокрастинации, активность по времени суток.
-- **AI-вход** — универсальный интерфейс для вопросов, команд, планирования и обработки мыслей.
-- **Инсайты** — ежедневные compressed-memory отчёты и Telegram coaching.
-- **Синхронизация** — экспорт/импорт JSON и выгрузка snapshot в GitHub.
+- UI публикуется как обычный статический сайт на **GitHub Pages**;
+- рабочая память хранится в браузере через **IndexedDB**;
+- при недоступном IndexedDB приложение переключается на локальный fallback;
+- резервная память экспортируется в JSON или выгружается в `data/memory.json`;
+- AI-ответы выполняются через **Groq API**;
+- напоминания и ежедневные отчёты запускаются через **GitHub Actions**;
+- уведомления отправляются через **Telegram Bot API**.
 
 ---
 
-## Архитектура
-
-| Слой | Файлы | Назначение |
-| --- | --- | --- |
-| UI layer | `index.html`, `src/app.js`, `src/styles.css` | Все экраны приложения, premium mobile-first интерфейс, навигация, формы и визуальная аналитика. |
-| Memory layer | `src/db.js` | IndexedDB-хранилище для задач, заметок, событий, сообщений, summaries и settings. |
-| AI layer | `src/ai.js` | Groq API, выбор модели по типу задачи, retrieval-aware контекст, fallback coach. |
-| Task engine | `src/taskEngine.js` | Оценка нагрузки, генерация расписания, аналитика поведения, retrieval layer. |
-| Automation layer | `.github/workflows/*.yml` | GitHub Pages deploy, регулярные напоминания, ежедневные отчёты. |
-| Notification layer | `scripts/*.mjs` | Groq-вызовы из Actions и отправка сообщений в Telegram. |
-
----
-
-## Быстрый локальный запуск
-
-> Проект не требует установки npm-зависимостей. В `package.json` используются только Node.js и Python HTTP server.
-
-### 1. Требования
-
-Установите:
-
-- **Node.js 22+** — нужен для проверки JS-файлов и GitHub Actions parity;
-- **Python 3** — используется для локального статического сервера;
-- **Git** — для работы с репозиторием.
-
-Проверить версии:
-
-```bash
-node --version
-python3 --version
-git --version
-```
-
-### 2. Запуск dev-сервера
-
-```bash
-npm run dev
-```
-
-После запуска откройте:
-
-```text
-http://localhost:5173
-```
-
-### 3. Проверка проекта
-
-```bash
-npm run check
-```
-
-Команда выполняет syntax-check для основных файлов:
-
-- `src/app.js`
-- `src/db.js`
-- `src/ai.js`
-- `src/taskEngine.js`
-- `scripts/lib.mjs`
-- `scripts/notify.mjs`
-- `scripts/daily-report.mjs`
-
-### 4. Production build
-
-```bash
-npm run build
-```
-
-Результат появится в папке:
-
-```text
-dist/
-```
-
-### 5. Локальный preview production build
-
-```bash
-npm run preview
-```
-
-После запуска откройте:
-
-```text
-http://localhost:4173
-```
-
----
-
-## Настройка Groq API ключа
-
-Groq используется как LLM-провайдер для AI-слоя приложения и GitHub Actions automation.
-
-### Где получить ключ
-
-1. Перейдите в Groq Console: `https://console.groq.com/`.
-2. Создайте аккаунт или войдите.
-3. Откройте раздел **API Keys**.
-4. Создайте новый ключ.
-5. Скопируйте значение ключа.
-
-### Как используется ключ
-
-Есть два режима использования Groq API:
-
-#### 1. В браузере
-
-Для ручного AI-чата внутри приложения:
-
-1. Откройте приложение.
-2. Перейдите в раздел **Синхронизация**.
-3. Вставьте ключ в поле **Groq API key**.
-4. Нажмите **Сохранить**.
-
-Ключ сохраняется только локально в браузере в IndexedDB/settings. Он не зашит в код и не попадает в репозиторий.
-
-#### 2. В GitHub Actions
-
-Для автономных Telegram-напоминаний и ежедневных отчётов ключ нужно добавить в GitHub Secrets под именем:
-
-```text
-GROQ_API_KEY
-```
-
-Подробная инструкция по GitHub Secrets находится ниже.
-
----
-
-## Настройка Telegram Bot API
-
-Telegram используется только как канал доставки уведомлений и отчётов.
-
-### 1. Создайте Telegram-бота
-
-1. Откройте Telegram.
-2. Найдите бота `@BotFather`.
-3. Отправьте команду:
-
-```text
-/newbot
-```
-
-4. Задайте имя и username бота.
-5. BotFather выдаст токен вида:
-
-```text
-1234567890:AAExampleTelegramBotToken
-```
-
-Этот токен понадобится как GitHub Secret:
-
-```text
-TELEGRAM_BOT_TOKEN
-```
-
-### 2. Получите Telegram Chat ID
-
-Вариант для личного чата:
-
-1. Напишите любое сообщение своему новому боту.
-2. Откройте в браузере URL, подставив токен:
-
-```text
-https://api.telegram.org/bot<TELEGRAM_BOT_TOKEN>/getUpdates
-```
-
-3. Найдите в JSON поле:
-
-```json
-"chat": { "id": 123456789 }
-```
-
-4. Это значение добавьте как GitHub Secret:
-
-```text
-TELEGRAM_CHAT_ID
-```
-
-Для группового чата добавьте бота в группу, отправьте сообщение в группу и также проверьте `getUpdates`. У групповых chat id часто отрицательное значение.
-
----
-
-## Настройка GitHub репозитория
-
-### 1. Создайте репозиторий
-
-1. Создайте новый GitHub repository.
-2. Загрузите туда код приложения.
-3. Убедитесь, что workflows находятся в папке:
-
-```text
-.github/workflows/
-```
-
-### 2. Включите GitHub Pages через Actions
-
-1. Откройте repository **Settings**.
-2. Перейдите в **Pages**.
-3. В блоке **Build and deployment** выберите:
-
-```text
-Source: GitHub Actions
-```
-
-4. Если GitHub показывает экран с предложенными workflow, выберите:
-
-```text
-Static HTML
-```
-
-Не выбирайте `GitHub Pages Jekyll`: проект не использует Jekyll, а собирает обычный static build в папку `dist`. Если в репозитории уже есть `.github/workflows/pages.yml`, не создавайте второй Pages workflow из шаблона — просто сохраните `Source: GitHub Actions` и запускайте существующий workflow **Deploy GitHub Pages**.
-
-5. Сохраните настройки.
-
-### 3. Добавьте GitHub Secrets
-
-Откройте:
-
-```text
-Repository → Settings → Secrets and variables → Actions → New repository secret
-```
-
-Добавьте обязательные секреты для AI-автоматизаций:
-
-| Secret | Для чего нужен |
-| --- | --- |
-| `GROQ_API_KEY` | Вызовы LLM из GitHub Actions для напоминаний и daily reports. |
-| `TELEGRAM_BOT_TOKEN` | Отправка сообщений через Telegram Bot API. |
-| `TELEGRAM_CHAT_ID` | ID пользователя или чата, куда отправлять уведомления. |
-
-Опционально для первого автоматического включения GitHub Pages можно добавить:
-
-| Secret | Для чего нужен |
-| --- | --- |
-| `PAGES_TOKEN` | Fine-grained token с правами администрирования Pages. Нужен только если Pages ещё не включён вручную в Settings → Pages. |
-
-Важно: не добавляйте эти значения в код, README, issues или commits.
-
----
-
-## Деплой на GitHub Pages
-
-Workflow деплоя не вызывает `actions/configure-pages` без `PAGES_TOKEN`, потому что GitHub API возвращает `Get Pages site failed: Not Found`, если Pages ещё не включён. Поэтому перед первым деплоем выберите один из вариантов:
-
-1. **Рекомендуется:** вручную включите `Source: GitHub Actions` в `Settings → Pages`. Если GitHub предлагает шаблоны workflow, выбирайте `Static HTML`, а не `GitHub Pages Jekyll`.
-2. **Автоматически:** добавьте secret `PAGES_TOKEN` с правами на администрирование Pages; тогда workflow выполнит `configure-pages` с `enablement: true`.
-
-После настройки Pages есть два способа деплоя.
-
-### Автоматически
-
-Сделайте push в ветку `main`:
-
-```bash
-git push origin main
-```
-
-Workflow `.github/workflows/pages.yml` соберёт static build и опубликует сайт.
-
-### Вручную
-
-1. Откройте вкладку **Actions**.
-2. Выберите workflow **Deploy GitHub Pages**.
-3. Нажмите **Run workflow**.
-4. В выпадающем списке **Branch** выберите `main`.
-
-Деплой в environment `github-pages` выполняется только из ветки `main`. Если запустить workflow из feature-ветки, например `codex/fix-github-actions-errors`, workflow выполнит build, но пропустит deploy, чтобы GitHub не отклонил публикацию из-за environment protection rules.
-
-После успешного деплоя URL будет доступен в GitHub Pages settings или в summary workflow run.
-
----
-
-## Настройка автоматических напоминаний
-
-Workflow:
-
-```text
-.github/workflows/notify.yml
-```
-
-Он запускается по cron каждые 5 минут:
-
-```yaml
-- cron: '*/5 * * * *'
-```
-
-Что делает workflow:
-
-1. Читает `data/memory.json`.
-2. Ищет задачи и события, которые наступают в окне времени.
-3. Отправляет контекст в Groq.
-4. Получает персонализированное напоминание.
-5. Отправляет сообщение в Telegram.
-
-Запустить вручную можно через:
-
-```text
-Actions → AI Telegram reminders → Run workflow
-```
-
----
-
-## Настройка ежедневного AI-отчёта
-
-Workflow:
-
-```text
-.github/workflows/daily-report.yml
-```
-
-Он запускается каждый день по cron:
-
-```yaml
-- cron: '55 20 * * *'
-```
-
-Время указано в UTC.
-
-Что делает workflow:
-
-1. Читает `data/memory.json`.
-2. Собирает данные за текущий день.
-3. Отправляет их в Groq.
-4. Получает структурированный анализ дня:
-   - итоги дня;
-   - поведенческие паттерны;
-   - ошибки дисциплины;
-   - рекомендации;
-   - эмоциональная и когнитивная динамика.
-5. Сохраняет результат в `stores.summaries` как compressed memory.
-6. Коммитит обновлённый `data/memory.json` обратно в репозиторий.
-7. Отправляет отчёт в Telegram.
-
-Запустить вручную можно через:
-
-```text
-Actions → Daily cognitive report → Run workflow
-```
-
----
-
-## Как работает память
-
-В браузере данные хранятся в IndexedDB:
-
-- `tasks` — задачи;
-- `notes` — заметки и дневниковые записи;
-- `events` — блоки расписания;
-- `memories` — structured memory, автоматически созданная из задач, заметок и событий;
-- `summaries` — compressed memory, ежедневные/локальные отчёты;
-- `messages` — история AI-входа;
-- `settings` — локальные настройки пользователя.
-
-### Экспорт памяти
-
-В приложении:
-
-1. Откройте **Синхронизация**.
-2. Нажмите **Скачать JSON**.
-3. Сохраните файл как backup.
-
-### Импорт памяти
-
-1. Откройте **Синхронизация**.
-2. Нажмите **Импорт JSON**.
-3. Выберите ранее сохранённый snapshot.
-
-### GitHub backup из браузера
-
-В разделе **Синхронизация** можно указать:
-
-- `owner/repo` — репозиторий для хранения `data/memory.json`;
-- fine-grained GitHub token с доступом **Contents: Read and write**.
-
-После этого кнопка **Выгрузить snapshot** обновит файл:
-
-```text
-data/memory.json
-```
-
-Этот токен хранится только локально в браузере. Не используйте personal access token с лишними правами.
-
----
-
-## API ключи и безопасность
-
-В коде нет hardcoded production secrets.
-
-Используются следующие значения:
-
-| Переменная | Где задаётся | Обязательна | Назначение |
-| --- | --- | --- | --- |
-| `GROQ_API_KEY` | GitHub Secrets / локально в UI | Да для AI automation | Groq LLM-запросы. |
-| `TELEGRAM_BOT_TOKEN` | GitHub Secrets | Да для Telegram | Доступ к Telegram Bot API. |
-| `TELEGRAM_CHAT_ID` | GitHub Secrets | Да для Telegram | Куда отправлять уведомления. |
-| GitHub fine-grained token | Только в UI, локально | Нет | Ручная выгрузка browser snapshot в GitHub. |
-
-Рекомендации:
-
-- никогда не коммитьте `.env` или реальные ключи;
-- не вставляйте ключи в `README.md` или публичные issues;
-- используйте отдельный Telegram bot только для этого проекта;
-- используйте fine-grained GitHub token с минимальными правами;
-- при утечке любого ключа сразу удалите его и создайте новый.
-
----
-
-## Полезные команды
-
-```bash
-# Локальный запуск
-npm run dev
-
-# Проверка JS-синтаксиса
-npm run check
-
-# Static production build
-npm run build
-
-# Preview production build
-npm run preview
-```
-
----
-
-## Troubleshooting
-
-### GitHub Pages не обновился
-
-Проверьте:
-
-1. Включён ли Source: **GitHub Actions** в Settings → Pages.
-2. Если Pages ещё не включён вручную, добавлен ли secret `PAGES_TOKEN` с правами на администрирование Pages. Без него `actions/configure-pages` не может создать Pages site.
-3. Запущен ли workflow из ветки `main`. Ветки вроде `codex/fix-github-actions-errors` обычно не имеют права деплоить в environment `github-pages`, поэтому deploy будет пропущен или отклонён правилами защиты.
-4. Успешно ли прошёл workflow **Deploy GitHub Pages**.
-5. Есть ли артефакт `dist` в workflow run.
-
-### Telegram не получает сообщения
-
-Проверьте:
-
-1. Бот создан через `@BotFather`.
-2. Вы написали боту хотя бы одно сообщение.
-3. `TELEGRAM_BOT_TOKEN` и `TELEGRAM_CHAT_ID` добавлены именно в repository secrets.
-4. Workflow `AI Telegram reminders` или `Daily cognitive report` завершился без ошибок.
-
-### Groq API не отвечает
-
-Проверьте:
-
-1. Корректность `GROQ_API_KEY`.
-2. Наличие доступных лимитов Groq.
-3. Логи GitHub Actions.
-4. Для браузерного AI — сохранён ли ключ в разделе **Синхронизация**.
-
-### В браузере пропали данные
-
-Данные хранятся локально в IndexedDB конкретного браузера и профиля. Если очистить site data, локальная память удалится. Используйте экспорт JSON или GitHub backup, чтобы иметь резервную копию.
+## Возможности
+
+- **Command / Dashboard** — обзор дня, нагрузки, фокуса и следующих блоков.
+- **Задачи** — задачи с приоритетом, дедлайном, оценкой времени, статусом и декомпозицией.
+- **День** — ручные time-blocks и автоматическая сборка расписания.
+- **Память** — заметки, дневник, настроение, энергия и structured memory.
+- **Аналитика** — выполнение задач, дисциплина, энергия, сигналы прокрастинации.
+- **Инсайты** — compressed memory, локальные и GitHub Actions отчёты.
+- **AI вход** — Groq-powered помощник с локальным fallback-коучем.
+- **Синхронизация** — экспорт/импорт JSON и ручная выгрузка snapshot в GitHub.
 
 ---
 
@@ -490,22 +32,436 @@ npm run preview
 ```text
 .
 ├── .github/workflows/
-│   ├── daily-report.yml
-│   ├── notify.yml
-│   └── pages.yml
+│   ├── ci.yml              # проверка JS и production build
+│   ├── daily-report.yml    # ежедневный AI-отчёт и commit data/memory.json
+│   ├── notify.yml          # Telegram-напоминания каждые 5 минут
+│   └── pages.yml           # публикация GitHub Pages
 ├── data/
-│   └── memory.json
+│   └── memory.json         # резервная compressed/browser memory
 ├── scripts/
 │   ├── daily-report.mjs
 │   ├── lib.mjs
-│   └── notify.mjs
+│   ├── notify.mjs
+│   └── smoke-render.mjs    # smoke-проверка, что UI не пустой
 ├── src/
 │   ├── ai.js
 │   ├── app.js
 │   ├── db.js
 │   ├── styles.css
 │   └── taskEngine.js
+├── .nojekyll               # GitHub Pages публикует файлы без Jekyll-обработки
 ├── index.html
 ├── package.json
 └── README.md
+```
+
+---
+
+## Локальный запуск
+
+### 1. Установите инструменты
+
+Нужны:
+
+- **Node.js 22+** — для проверок и совпадения с GitHub Actions;
+- **Python 3** — для локального статического сервера;
+- **Git** — для clone/commit/push.
+
+Проверьте версии:
+
+```bash
+node --version
+python3 --version
+git --version
+```
+
+### 2. Склонируйте репозиторий
+
+```bash
+git clone https://github.com/<OWNER>/<REPO>.git
+cd <REPO>
+```
+
+### 3. Запустите dev-сервер
+
+```bash
+npm run dev
+```
+
+Откройте в браузере:
+
+```text
+http://localhost:5173
+```
+
+> Не открывайте `index.html` двойным кликом как `file://...`: ES modules и браузерное хранилище корректно работают через HTTP-сервер.
+
+### 4. Проверьте код
+
+```bash
+npm run check
+```
+
+Команда делает:
+
+1. `node --check` для всех JS/MJS-файлов;
+2. smoke-render test `scripts/smoke-render.mjs`, который импортирует приложение, включает fallback-хранилище и проверяет, что dashboard реально отрисовался, а страница не пустая.
+
+### 5. Соберите production-версию
+
+```bash
+npm run build
+```
+
+После сборки появится папка:
+
+```text
+dist/
+```
+
+### 6. Проверьте production build локально
+
+```bash
+npm run preview
+```
+
+Откройте:
+
+```text
+http://localhost:4173
+```
+
+---
+
+## Запуск и публикация в GitHub Pages
+
+### Шаг 1. Создайте GitHub repository
+
+1. Откройте GitHub.
+2. Создайте новый репозиторий.
+3. Загрузите туда все файлы проекта, включая:
+   - `.github/workflows/pages.yml`;
+   - `.github/workflows/ci.yml`;
+   - `.nojekyll`;
+   - `index.html`;
+   - `src/`;
+   - `data/`;
+   - `scripts/`;
+   - `package.json`.
+
+### Шаг 2. Запушьте код в ветку `main`
+
+```bash
+git add .
+git commit -m "Deploy Megabot"
+git branch -M main
+git remote add origin https://github.com/<OWNER>/<REPO>.git
+git push -u origin main
+```
+
+Если remote уже добавлен:
+
+```bash
+git push origin main
+```
+
+### Шаг 3. Включите GitHub Pages через Actions
+
+1. Откройте репозиторий на GitHub.
+2. Перейдите в **Settings → Pages**.
+3. В блоке **Build and deployment** выберите:
+
+```text
+Source: GitHub Actions
+```
+
+4. Сохраните настройку.
+
+Важно:
+
+- не выбирайте Jekyll-тему;
+- не создавайте второй Pages workflow из шаблона, если в репозитории уже есть `.github/workflows/pages.yml`;
+- файл `.nojekyll` нужен, чтобы GitHub Pages не обрабатывал проект как Jekyll-сайт.
+
+### Шаг 4. Запустите workflow публикации
+
+Есть два варианта:
+
+#### Автоматически
+
+Сделайте push в `main`:
+
+```bash
+git push origin main
+```
+
+#### Вручную
+
+1. Откройте вкладку **Actions**.
+2. Выберите workflow **Deploy GitHub Pages**.
+3. Нажмите **Run workflow**.
+4. Выберите ветку `main`.
+5. Нажмите **Run workflow** ещё раз.
+
+### Шаг 5. Откройте опубликованное приложение
+
+После успешного workflow GitHub покажет URL вида:
+
+```text
+https://<OWNER>.github.io/<REPO>/
+```
+
+Также URL можно найти здесь:
+
+```text
+Repository → Settings → Pages
+```
+
+---
+
+## Если на GitHub Pages пустая страница
+
+Проверьте по порядку:
+
+1. **Открыт именно Pages URL**, а не HTML-файл внутри GitHub repository viewer.
+   - правильно: `https://<OWNER>.github.io/<REPO>/`;
+   - неправильно: `https://github.com/<OWNER>/<REPO>/blob/main/index.html`.
+2. В **Settings → Pages** выбран `Source: GitHub Actions`.
+3. Workflow **Deploy GitHub Pages** завершился зелёной галочкой.
+4. В workflow был выполнен `npm run check` и `npm run build`.
+5. В артефакте Pages есть файлы:
+   - `index.html`;
+   - `src/app.js`;
+   - `src/styles.css`;
+   - `data/memory.json`;
+   - `.nojekyll`.
+6. В браузере сделайте hard refresh:
+   - Windows/Linux: `Ctrl + Shift + R`;
+   - macOS: `Cmd + Shift + R`.
+7. Откройте DevTools → Console. Если есть ошибка, сначала запустите локально:
+
+```bash
+npm run check
+npm run build
+npm run preview
+```
+
+В текущей версии приложение дополнительно показывает экран ошибки вместо полностью пустого экрана, если во время запуска произойдёт runtime-исключение.
+
+---
+
+## Настройка Groq API
+
+Groq нужен для AI-чата в браузере и для GitHub Actions automation.
+
+### Получение ключа
+
+1. Откройте `https://console.groq.com/`.
+2. Войдите или создайте аккаунт.
+3. Перейдите в **API Keys**.
+4. Создайте новый ключ.
+5. Скопируйте значение.
+
+### Вариант A: ключ только для браузера
+
+1. Откройте приложение.
+2. Перейдите в **Синхронизация**.
+3. Вставьте ключ в поле **Groq API key**.
+4. Нажмите **Сохранить**.
+
+Ключ хранится только локально в IndexedDB/settings текущего браузера.
+
+### Вариант B: ключ для GitHub Actions
+
+Откройте:
+
+```text
+Repository → Settings → Secrets and variables → Actions → New repository secret
+```
+
+Добавьте secret:
+
+```text
+GROQ_API_KEY
+```
+
+---
+
+## Настройка Telegram-уведомлений
+
+### 1. Создайте бота
+
+1. Откройте Telegram.
+2. Найдите `@BotFather`.
+3. Отправьте команду:
+
+```text
+/newbot
+```
+
+4. Задайте имя и username.
+5. Скопируйте токен бота.
+
+Добавьте его в GitHub Secrets как:
+
+```text
+TELEGRAM_BOT_TOKEN
+```
+
+### 2. Получите Chat ID
+
+1. Напишите любое сообщение своему боту.
+2. Откройте URL, подставив токен:
+
+```text
+https://api.telegram.org/bot<TELEGRAM_BOT_TOKEN>/getUpdates
+```
+
+3. Найдите поле:
+
+```json
+"chat": { "id": 123456789 }
+```
+
+4. Добавьте значение в GitHub Secrets как:
+
+```text
+TELEGRAM_CHAT_ID
+```
+
+Для группового чата добавьте бота в группу, отправьте сообщение в группу и затем снова вызовите `getUpdates`. У групп часто отрицательный `chat.id`.
+
+---
+
+## GitHub Secrets
+
+Откройте:
+
+```text
+Repository → Settings → Secrets and variables → Actions → New repository secret
+```
+
+Добавьте:
+
+| Secret | Обязателен | Для чего нужен |
+| --- | --- | --- |
+| `GROQ_API_KEY` | Для AI automation | Groq API в `daily-report.yml` и `notify.yml`. |
+| `TELEGRAM_BOT_TOKEN` | Для Telegram | Отправка сообщений ботом. |
+| `TELEGRAM_CHAT_ID` | Для Telegram | Чат, куда отправлять уведомления. |
+
+Опционально:
+
+| Secret | Для чего нужен |
+| --- | --- |
+| `PAGES_TOKEN` | Только если нужно автоматически включать Pages из workflow. Обычно достаточно вручную выбрать `Source: GitHub Actions` в Settings → Pages. |
+
+---
+
+## GitHub Actions workflows
+
+### CI
+
+Файл: `.github/workflows/ci.yml`
+
+Запускается на push в `main`, pull request и вручную. Выполняет:
+
+```bash
+npm run check
+npm run build
+```
+
+### Deploy GitHub Pages
+
+Файл: `.github/workflows/pages.yml`
+
+Запускается на push в `main` и вручную. Выполняет:
+
+1. checkout;
+2. setup Node.js;
+3. `npm run check`;
+4. `npm run build`;
+5. upload Pages artifact из `dist/`;
+6. deploy в GitHub Pages.
+
+### AI Telegram reminders
+
+Файл: `.github/workflows/notify.yml`
+
+Запускается каждые 5 минут и вручную. Проверяет ближайшие задачи/события из `data/memory.json`, генерирует короткое AI-напоминание и отправляет его в Telegram.
+
+### Daily cognitive report
+
+Файл: `.github/workflows/daily-report.yml`
+
+Запускается ежедневно и вручную. Создаёт AI-отчёт, сохраняет его в `data/memory.json`, коммитит обновление и отправляет отчёт в Telegram.
+
+---
+
+## Работа с памятью
+
+### Где хранятся данные
+
+В браузере:
+
+- `tasks` — задачи;
+- `notes` — заметки и дневник;
+- `events` — расписание;
+- `memories` — structured memory;
+- `summaries` — compressed memory;
+- `messages` — история AI-чата;
+- `settings` — локальные настройки.
+
+В репозитории:
+
+- `data/memory.json` — переносимый snapshot для GitHub Actions и backup.
+
+### Экспорт JSON
+
+1. Откройте **Синхронизация**.
+2. Нажмите **Скачать JSON**.
+3. Сохраните файл как резервную копию.
+
+### Импорт JSON
+
+1. Откройте **Синхронизация**.
+2. Нажмите **Импорт JSON**.
+3. Выберите ранее сохранённый файл.
+
+### Ручная выгрузка snapshot в GitHub
+
+1. Создайте fine-grained GitHub token с доступом к репозиторию и правом **Contents: Read and write**.
+2. Откройте **Синхронизация**.
+3. Введите `owner/repo`.
+4. Вставьте token.
+5. Нажмите **Сохранить sync**.
+6. Нажмите **Выгрузить snapshot**.
+
+Токен хранится только локально в браузере. Не коммитьте его в репозиторий.
+
+---
+
+## Безопасность
+
+- В коде нет production secrets.
+- Не вставляйте ключи в `README.md`, issues, commits или screenshots.
+- При утечке любого ключа сразу удалите его и создайте новый.
+- Для ручной GitHub-синхронизации используйте fine-grained token с минимальными правами.
+- Браузерный Groq key хранится только локально в IndexedDB/settings конкретного браузера.
+
+---
+
+## Полезные команды
+
+```bash
+# Dev server
+npm run dev
+
+# Проверка синтаксиса и smoke-render
+npm run check
+
+# Production build
+npm run build
+
+# Preview build
+npm run preview
 ```
