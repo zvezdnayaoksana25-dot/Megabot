@@ -5,9 +5,9 @@
   "type": "module",
   "scripts": {
     "dev": "python3 -m http.server 5173",
-    "build": "rm -rf dist && mkdir -p dist && cp -R index.html src data dist/",
+    "build": "rm -rf dist && mkdir -p dist && cp -R index.html src data .nojekyll dist/",
     "preview": "python3 -m http.server 4173 -d dist",
-    "check": "node --check src/app.js && node --check src/db.js && node --check src/ai.js && node --check src/taskEngine.js && node --check scripts/lib.mjs && node --check scripts/notify.mjs && node --check scripts/daily-report.mjs"
+    "check": "node --check src/app.js && node --check src/db.js && node --check src/ai.js && node --check src/taskEngine.js && node --check scripts/lib.mjs && node --check scripts/notify.mjs && node --check scripts/daily-report.mjs && node --check scripts/smoke-render.mjs && node scripts/smoke-render.mjs"
   },
   "dependencies": {},
   "devDependencies": {}
