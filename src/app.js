@@ -9,6 +9,8 @@ const sections = [
 
 const app = document.querySelector('#app');
 
+renderLoading();
+
 async function refresh() {
   [state.tasks, state.notes, state.events, state.memories, state.summaries, state.messages, state.settings] = await Promise.all([
     getAll('tasks'), getAll('notes'), getAll('events'), getAll('memories'), getAll('summaries'), getAll('messages'), getSettings()
@@ -19,6 +21,15 @@ async function refresh() {
 function todayTasks() { return state.tasks.filter((task) => task.status !== 'done' && (!task.deadline || task.deadline.startsWith(todayKey()))); }
 function load() { return scoreLoad(state.tasks, state.events); }
 function analytics() { return deriveAnalytics(state.tasks, state.notes, state.events); }
+
+function renderLoading() {
+  app.innerHTML = `<main class="shell boot"><section class="card glass"><p class="eyebrow">Megabot запускается</p><h1>Загружаю когнитивную систему…</h1><p class="muted">Если браузер ограничивает IndexedDB, приложение автоматически переключится на локальное резервное хранилище.</p></section></main>`;
+}
+
+function renderError(error) {
+  console.error('Megabot не смог запуститься', error);
+  app.innerHTML = `<main class="shell boot"><section class="card glass"><p class="eyebrow">Ошибка запуска</p><h1>Не удалось открыть локальную память</h1><p class="muted">Обновите страницу или очистите данные сайта. Техническая деталь: ${escapeHtml(error?.message || error)}</p></section></main>`;
+}
 
 function render() {
   app.innerHTML = `
@@ -105,4 +116,4 @@ async function importFile(event) { const file = event.target.files[0]; if (!file
 function download(name, text) { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([text], { type: 'application/json' })); a.download = name; a.click(); }
 async function pushGithub() { const snapshot = await exportSnapshot(); const repo = state.settings.githubRepo; const token = state.settings.githubToken; if (!repo || !token) return alert('Заполните repo и token'); const url = `https://api.github.com/repos/${repo}/contents/data/memory.json`; const current = await fetch(url, { headers: { Authorization: `Bearer ${token}` } }).then((r) => r.ok ? r.json() : null); await fetch(url, { method: 'PUT', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ message: 'Sync Megabot memory snapshot', content: btoa(unescape(encodeURIComponent(JSON.stringify(snapshot, null, 2)))), sha: current?.sha }) }); alert('Snapshot выгружен в data/memory.json'); }
 
-seedIfEmpty().then(refresh);
+seedIfEmpty().then(refresh).catch(renderError);
