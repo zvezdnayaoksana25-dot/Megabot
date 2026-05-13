@@ -28,9 +28,6 @@ jobs:
           node-version: 22
       - run: npm run check
       - run: npm run build
-      - name: Configure Pages
-        if: env.PAGES_TOKEN_CONFIGURED != 'true'
-        uses: actions/configure-pages@v6
       - name: Enable and configure Pages
         if: env.PAGES_TOKEN_CONFIGURED == 'true'
         uses: actions/configure-pages@v6
@@ -41,6 +38,7 @@ jobs:
         with:
           path: dist
   deploy:
+    if: github.ref == 'refs/heads/main'
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
